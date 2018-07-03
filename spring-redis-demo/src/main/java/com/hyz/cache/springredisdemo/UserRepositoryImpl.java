@@ -1,5 +1,7 @@
 package com.hyz.cache.springredisdemo;
 
+import com.hyz.cache.springredisdemo.cache.JsonUtil;
+import com.hyz.cache.springredisdemo.cache.KeyPrefix;
 import com.hyz.cache.springredisdemo.model.User;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -15,7 +17,7 @@ import java.util.Map;
  * Time: 12:28
  */
 @Repository
-public class UserRepositoryImpl implements UserRepository {
+public class UserRepositoryImpl  extends BaseService implements UserRepository{
 
     private RedisTemplate<String,User> redisTemplate;
 
@@ -48,6 +50,44 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public void delete(String id) {
+
+        String keyPrefix = KeyPrefix.DETAIL_INFO_ONE;
+        String key = KeyPrefix.buildKey(keyPrefix, String.valueOf(id));
+        cacheUtils.delete(keyPrefix, key);
+
         hashOperations.delete("USER",id);
+    }
+
+
+    /**
+     * 获取第一组缓存 短时间
+     */
+    private <T> T getCacheOne(String skuId) {
+        String prefix = KeyPrefix.DETAIL_INFO_ONE;
+        String key = KeyPrefix.buildKey(prefix, skuId);
+
+        String strCache = cacheUtils.get(prefix, key);
+        if (strCache != null) {
+            return (T) JsonUtil.json2Object(strCache, SkuDetailCacheOne.class);
+        }
+        return null;
+    }
+
+    /**
+     * 写入第一组缓存
+     * @param event
+     */
+    private void setCacheOne(SkuDetailEvent event) {
+        String prefix = KeyPrefix.DETAIL_INFO_ONE;
+        String key = KeyPrefix.buildKey(prefix, event.getSkuId());
+
+        SkuDetailCacheOne skuDetailCacheOne = new SkuDetailCacheOne();
+
+        skuDetailCacheOne.setCommentNum(event.getCommentNum());
+        skuDetailCacheOne.setScore(event.getScore());
+
+        String strCache = JsonUtil.write2JsonStr(skuDetailCacheOne);
+        cacheUtils.set(prefix, key, strCache);
+
     }
 }
